@@ -13,8 +13,6 @@ public class ImageUtils {
     // are normalized to eight bits.
     static final int kMaxChannelValue = 262143;
 
-
-
     /**
      * Utility method to compute the allocated size in bytes of a YUV420SP image of the given
      * dimensions.

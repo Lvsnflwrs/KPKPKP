@@ -14,7 +14,6 @@ limitations under the License.
 ==============================================================================*/
 
 package com.example.realtimefacerecognition.Drawing;
-
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -28,15 +27,12 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.util.TypedValue;
-
-
-
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
-import com.example.imageclassificationlivefeed.LiveFeed.ImageUtils;
-import com.example.imageclassificationlivefeed.Face_Recognition.FaceClassifier.Recognition;
+import com.example.realtimefacerecognition.LiveFeed.ImageUtils;
+import com.example.realtimefacerecognition.Face_Recognition.FaceClassifier.Recognition;
 
 /** A tracker that handles non-max suppression and matches existing objects to new detections. */
 public class MultiBoxTracker {

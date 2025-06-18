@@ -58,10 +58,9 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Instantiated by newInstance.</p>
  */
+@SuppressLint("ValidFragment")
 @SuppressWarnings("FragmentNotInstantiable")
 public class CameraConnectionFragment extends Fragment {
-
-
     /**
      * The camera preview size will be chosen to be the smallest frame by pixel size capable of
      * containing a DESIRED_SIZE x DESIRED_SIZE square.
