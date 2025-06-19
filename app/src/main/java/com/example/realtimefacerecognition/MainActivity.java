@@ -97,8 +97,8 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
         useFacing = intent.getIntExtra(KEY_USE_FACING, CameraCharacteristics.LENS_FACING_BACK);
 
         //TODO show live camera footage
-//        handler.postDelayed(() -> setFragment(), 300);
-        setFragment();
+        handler.postDelayed(() -> setFragment(), 300);
+//        setFragment();
 
         //TODO initialize the tracker to draw rectangles
         tracker = new MultiBoxTracker(this);
@@ -218,7 +218,8 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                         },
                         this,
                         R.layout.camera_fragment,
-                        new Size(480, 480));
+//                        new Size(480, 480));
+                        new Size(640, 480));
 
         camera2Fragment.setCamera(cameraId);
         fragment = camera2Fragment;
@@ -387,8 +388,8 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
         Bitmap crop = Bitmap.createBitmap(input,
                 bounds.left,
                 bounds.top,
-                bounds.width()+70,
-                bounds.height()-30);
+                bounds.width(),
+                bounds.height());
         crop = Bitmap.createScaledBitmap(crop,TF_OD_API_INPUT_SIZE2,TF_OD_API_INPUT_SIZE2,false);
 
 
