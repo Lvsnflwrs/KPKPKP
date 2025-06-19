@@ -24,7 +24,9 @@ public class TFLiteFaceRecognition
         implements FaceClassifier {
 
     //private static final int OUTPUT_SIZE = 512;
-    private static final int OUTPUT_SIZE = 512;
+//    private static final int OUTPUT_SIZE = 512;
+    private static final int OUTPUT_SIZE = 192;
+
 
     // Only return this many results.
     private static final int NUM_DETECTIONS = 1;
