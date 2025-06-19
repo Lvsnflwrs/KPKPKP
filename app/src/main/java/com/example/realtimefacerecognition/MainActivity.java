@@ -67,13 +67,13 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     private Integer useFacing = null;
     private static final String KEY_USE_FACING = "use_facing";
     private static final int CROP_SIZE = 1000;
-    private static final int TF_OD_API_INPUT_SIZE2 = 160;
+    private static final int TF_OD_API_INPUT_SIZE2 = 112;
 
 //    //TODO declare face detector
     FaceDetector detector;
 
 //    //TODO declare face recognizer
-//    private FaceClassifier faceClassifier;
+    private FaceClassifier faceClassifier;
 
     boolean registerFace = false;
 
@@ -97,7 +97,8 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
         useFacing = intent.getIntExtra(KEY_USE_FACING, CameraCharacteristics.LENS_FACING_BACK);
 
         //TODO show live camera footage
-        handler.postDelayed(() -> setFragment(), 300);
+//        handler.postDelayed(() -> setFragment(), 300);
+        setFragment();
 
         //TODO initialize the tracker to draw rectangles
         tracker = new MultiBoxTracker(this);
@@ -113,22 +114,22 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
         detector = FaceDetection.getClient(highAccuracyOpts);
 
         //TODO initialize FACE Recognition
-//        try {
-//            faceClassifier =
-//                    TFLiteFaceRecognition.create(
-//                            getAssets(),
-//                            "facenet.tflite",
-//                            TF_OD_API_INPUT_SIZE2,
-//                            false);
-//
-//        } catch (final IOException e) {
-//            e.printStackTrace();
-//            Toast toast =
-//                    Toast.makeText(
-//                            getApplicationContext(), "Classifier could not be initialized", Toast.LENGTH_SHORT);
-//            toast.show();
-//            finish();
-//        }
+        try {
+            faceClassifier =
+                    TFLiteFaceRecognition.create(
+                            getAssets(),
+                            "mobile_face_net.tflite",
+                            TF_OD_API_INPUT_SIZE2,
+                            false);
+
+        } catch (final IOException e) {
+            e.printStackTrace();
+            Toast toast =
+                    Toast.makeText(
+                            getApplicationContext(), "Classifier could not be initialized", Toast.LENGTH_SHORT);
+            toast.show();
+            finish();
+        }
 
         findViewById(R.id.imageView4).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -217,7 +218,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                         },
                         this,
                         R.layout.camera_fragment,
-                        new Size(640, 480));
+                        new Size(480, 480));
 
         camera2Fragment.setCamera(cameraId);
         fragment = camera2Fragment;
@@ -342,7 +343,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
                                                 for(Face face:faces) {
                                                     final Rect bounds = face.getBoundingBox();
-//                                                    performFaceRecognition(face,croppedBitmap);
+                                                    performFaceRecognition(face,croppedBitmap);
                                                 }
                                                 registerFace = false;
                                                 tracker.trackResults(mappedRecognitions, 10);
@@ -367,56 +368,56 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     }
 
     //TODO perform face recognition
-//    public void performFaceRecognition(Face face,Bitmap input){
-//        //TODO crop the face
-//        Rect bounds = face.getBoundingBox();
-//        if(bounds.top<0){
-//            bounds.top = 0;
-//        }
-//        if(bounds.left<0){
-//            bounds.left = 0;
-//        }
-//        if(bounds.left+bounds.width()>input.getWidth()){
-//            bounds.right = input.getWidth()-1;
-//        }
-//        if(bounds.top+bounds.height()>input.getHeight()){
-//            bounds.bottom = input.getHeight()-1;
-//        }
-//
-//        Bitmap crop = Bitmap.createBitmap(input,
-//                bounds.left,
-//                bounds.top,
-//                bounds.width(),
-//                bounds.height());
-//        crop = Bitmap.createScaledBitmap(crop,TF_OD_API_INPUT_SIZE2,TF_OD_API_INPUT_SIZE2,false);
-//
-//
-//        final FaceClassifier.Recognition result = faceClassifier.recognizeImage(crop, registerFace);
-//        String title = "Unknown";
-//        float confidence = 0;
-//        if (result !=null) {
-//            if(registerFace){
-//                registerFaceDialogue(crop,result);
-//            }else {
-//                if (result.getDistance() < 0.75f) {
-//                    confidence = result.getDistance();
-//                    title = result.getTitle();
-//                }
-//            }
-//        }
-//
-//        RectF location = new RectF(bounds);
-//        if (bounds != null) {
-//            if(useFacing == CameraCharacteristics.LENS_FACING_BACK) {
-//                location.right = input.getWidth() - location.right;
-//                location.left = input.getWidth() - location.left;
-//            }
-//            cropToFrameTransform.mapRect(location);
-//            FaceClassifier.Recognition recognition = new FaceClassifier.Recognition(face.getTrackingId()+"",title,confidence,location);
-//            mappedRecognitions.add(recognition);
-//        }
-//
-//    }
+    public void performFaceRecognition(Face face,Bitmap input){
+        //TODO crop the face
+        Rect bounds = face.getBoundingBox();
+        if(bounds.top<0){
+            bounds.top = 0;
+        }
+        if(bounds.left<0){
+            bounds.left = 0;
+        }
+        if(bounds.left+bounds.width()>input.getWidth()){
+            bounds.right = input.getWidth()-1;
+        }
+        if(bounds.top+bounds.height()>input.getHeight()){
+            bounds.bottom = input.getHeight()-1;
+        }
+
+        Bitmap crop = Bitmap.createBitmap(input,
+                bounds.left,
+                bounds.top,
+                bounds.width()+70,
+                bounds.height()-30);
+        crop = Bitmap.createScaledBitmap(crop,TF_OD_API_INPUT_SIZE2,TF_OD_API_INPUT_SIZE2,false);
+
+
+        final FaceClassifier.Recognition result = faceClassifier.recognizeImage(crop, registerFace);
+        String title = "Unknown";
+        float confidence = 0;
+        if (result !=null) {
+            if(registerFace){
+                registerFaceDialogue(crop,result);
+            }else {
+                if (result.getDistance() < 0.75f) {
+                    confidence = result.getDistance();
+                    title = result.getTitle();
+                }
+            }
+        }
+
+        RectF location = new RectF(bounds);
+        if (bounds != null) {
+            if(useFacing == CameraCharacteristics.LENS_FACING_BACK) {
+                location.right = input.getWidth() - location.right;
+                location.left = input.getWidth() - location.left;
+            }
+            cropToFrameTransform.mapRect(location);
+            FaceClassifier.Recognition recognition = new FaceClassifier.Recognition(face.getTrackingId()+"",title,confidence,location);
+            mappedRecognitions.add(recognition);
+        }
+
+    }
 
     @Override
     protected void onDestroy() {
@@ -425,28 +426,28 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     }
 
     //TODO register face dialogue
-//    private void registerFaceDialogue(Bitmap croppedFace, FaceClassifier.Recognition rec) {
-//        Dialog dialog = new Dialog(this);
-//        dialog.setContentView(R.layout.register_face_dialogue);
-//        ImageView ivFace = dialog.findViewById(R.id.dlg_image);
-//        EditText nameEd = dialog.findViewById(R.id.dlg_input);
-//        Button register = dialog.findViewById(R.id.button2);
-//        ivFace.setImageBitmap(croppedFace);
-//        register.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                String name = nameEd.getText().toString();
-//                if (name.isEmpty()) {
-//                    nameEd.setError("Enter Name");
-//                    return;
-//                }
-//                faceClassifier.register(name, rec);
-//                Toast.makeText(MainActivity.this, "Face Registered Successfully", Toast.LENGTH_SHORT).show();
-//                dialog.dismiss();
-//            }
-//        });
-//        dialog.show();
-//    }
+    private void registerFaceDialogue(Bitmap croppedFace, FaceClassifier.Recognition rec) {
+        Dialog dialog = new Dialog(this);
+        dialog.setContentView(R.layout.register_face_dialogue);
+        ImageView ivFace = dialog.findViewById(R.id.dlg_image);
+        EditText nameEd = dialog.findViewById(R.id.dlg_input);
+        Button register = dialog.findViewById(R.id.button2);
+        ivFace.setImageBitmap(croppedFace);
+        register.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String name = nameEd.getText().toString();
+                if (name.isEmpty()) {
+                    nameEd.setError("Enter Name");
+                    return;
+                }
+                faceClassifier.register(name, rec);
+                Toast.makeText(MainActivity.this, "Face Registered Successfully", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            }
+        });
+        dialog.show();
+    }
 
     //TODO switch camera
     public void switchCamera() {
