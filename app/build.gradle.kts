@@ -50,4 +50,6 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     implementation ("org.tensorflow:tensorflow-lite:+")
     implementation ("com.google.mlkit:face-detection:16.1.7")
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.ws)
 }
