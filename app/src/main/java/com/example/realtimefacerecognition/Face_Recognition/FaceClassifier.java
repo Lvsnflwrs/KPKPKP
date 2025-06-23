@@ -17,7 +17,7 @@ public interface FaceClassifier {
         private final String title;
         // A sortable score for how good the recognition is relative to others. Lower should be better.
         private final Float distance;
-        private Object embeeding;
+        private float[] embedding;
         /** Optional location within the source image for the location of the recognized face. */
         private RectF location;
         private Bitmap crop;
@@ -28,15 +28,24 @@ public interface FaceClassifier {
             this.title = title;
             this.distance = distance;
             this.location = location;
-            this.embeeding = null;
+            this.embedding = null;
             this.crop = null;
         }
 
-        public void setEmbeeding(Object extra) {
-            this.embeeding = extra;
+        public Recognition(final String title, float[] embedding) {
+            this.id = null;
+            this.title = title;
+            this.distance = null;
+            this.location = null;
+            this.embedding = embedding;
+            this.crop = null;
+        }
+
+        public void setEmbeeding(float[] extra) {
+            this.embedding = extra;
         }
         public Object getEmbeeding() {
-            return this.embeeding;
+            return this.embedding;
         }
 
         public String getId() {

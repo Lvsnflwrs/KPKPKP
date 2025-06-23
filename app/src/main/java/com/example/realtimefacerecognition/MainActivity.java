@@ -1,5 +1,7 @@
 package com.example.realtimefacerecognition;
 
+import static android.content.Intent.getIntent;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -62,6 +64,7 @@ import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 import okio.ByteString;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -94,7 +97,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
     private WebSocket webSocket;
 
-    private static final String WEBSOCKET_URL = "ws://10.0.2.2:8080";
+    private static final String WEBSOCKET_URL = "ws://10.60.225.222:3000";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -163,9 +166,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                 switchCamera();
             }
         });
-
         initWebSocket(); // Initialize WebSocket connection
-
     }
 
 
@@ -501,7 +502,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                     try {
                         JSONObject jsonRequest = new JSONObject();
                         jsonRequest.put("type", "recognize_face");
-                        jsonRequest.put("embeddings", result.getEmbeeding()); // Send the raw embeddings
+                        jsonRequest.put("embedding", result.getEmbeeding()); // Send the raw embeddings
                         sendWebSocketMessage(jsonRequest.toString());
                     } catch (JSONException e) {
                         Log.e("WebSocket", "Error creating recognition request JSON: " + e.getMessage());
@@ -554,14 +555,24 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                 if (webSocket != null) {
                     try {
                         JSONObject jsonRequest = new JSONObject();
-                        jsonRequest.put("type", "register_face");
+                        jsonRequest.put("type", "insert_face");
                         jsonRequest.put("name", name);
-                        jsonRequest.put("embeddings", rec.getEmbeeding()); // Send the raw embeddings
+
+                        // Konversi embedding float[] ke JSONArray
+                        float[] emb = (float[]) rec.getEmbeeding();
+                        JSONArray embeddingJson = new JSONArray();
+                        for (float val : emb) {
+                            embeddingJson.put(val);
+                        }
+
+                        jsonRequest.put("embedding", embeddingJson);
+
                         sendWebSocketMessage(jsonRequest.toString());
                     } catch (JSONException e) {
                         Log.e("WebSocket", "Error creating registration request JSON: " + e.getMessage());
                     }
                 }
+
                 faceClassifier.register(name, rec);
                 Toast.makeText(MainActivity.this, "Face Registered Successfully", Toast.LENGTH_SHORT).show();
                 dialog.dismiss();

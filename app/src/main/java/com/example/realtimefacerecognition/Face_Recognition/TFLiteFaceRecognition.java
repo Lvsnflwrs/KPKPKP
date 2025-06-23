@@ -6,9 +6,6 @@ import android.graphics.Bitmap;
 import android.graphics.RectF;
 import android.util.Pair;
 
-
-
-
 import org.tensorflow.lite.Interpreter;
 
 import java.io.FileInputStream;
@@ -20,31 +17,19 @@ import java.nio.channels.FileChannel;
 import java.util.HashMap;
 import java.util.Map;
 
-public class TFLiteFaceRecognition
-        implements FaceClassifier {
+public class TFLiteFaceRecognition implements FaceClassifier {
 
-    //private static final int OUTPUT_SIZE = 512;
-//    private static final int OUTPUT_SIZE = 512;
     private static final int OUTPUT_SIZE = 192;
-
-
-    // Only return this many results.
-    private static final int NUM_DETECTIONS = 1;
-
-    // Float model
     private static final float IMAGE_MEAN = 128.0f;
     private static final float IMAGE_STD = 128.0f;
 
     private boolean isModelQuantized;
-    // Config values.
     private int inputSize;
 
     private int[] intValues;
-
-    private float[][] embeedings;
+    private float[] embedding;
 
     private ByteBuffer imgData;
-
     private Interpreter tfLite;
 
     public HashMap<String, Recognition> registered = new HashMap<>();
@@ -55,9 +40,7 @@ public class TFLiteFaceRecognition
 
     private TFLiteFaceRecognition() {}
 
-    //TODO loads the models into mapped byte buffer format
-    private static MappedByteBuffer loadModelFile(AssetManager assets, String modelFilename)
-            throws IOException {
+    private static MappedByteBuffer loadModelFile(AssetManager assets, String modelFilename) throws IOException {
         AssetFileDescriptor fileDescriptor = assets.openFd(modelFilename);
         FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
         FileChannel fileChannel = inputStream.getChannel();
@@ -66,14 +49,11 @@ public class TFLiteFaceRecognition
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
     }
 
-
-
     public static FaceClassifier create(
             final AssetManager assetManager,
             final String modelFilename,
             final int inputSize,
-            final boolean isQuantized)
-            throws IOException {
+            final boolean isQuantized) throws IOException {
 
         final TFLiteFaceRecognition d = new TFLiteFaceRecognition();
         d.inputSize = inputSize;
@@ -85,31 +65,23 @@ public class TFLiteFaceRecognition
         }
 
         d.isModelQuantized = isQuantized;
-        // Pre-allocate buffers.
-        int numBytesPerChannel;
-        if (isQuantized) {
-            numBytesPerChannel = 1; // Quantized
-        } else {
-            numBytesPerChannel = 4; // Floating point
-        }
+        int numBytesPerChannel = isQuantized ? 1 : 4;
         d.imgData = ByteBuffer.allocateDirect(1 * d.inputSize * d.inputSize * 3 * numBytesPerChannel);
         d.imgData.order(ByteOrder.nativeOrder());
         d.intValues = new int[d.inputSize * d.inputSize];
         return d;
     }
 
-    //TODO  looks for the nearest embeeding in the dataset
-    // and retrurns the pair <id, distance>
     private Pair<String, Float> findNearest(float[] emb) {
         Pair<String, Float> ret = null;
         for (Map.Entry<String, Recognition> entry : registered.entrySet()) {
             final String name = entry.getKey();
-            final float[] knownEmb = ((float[][]) entry.getValue().getEmbeeding())[0];
+            final float[] knownEmb = (float[]) entry.getValue().getEmbeeding();
 
             float distance = 0;
             for (int i = 0; i < emb.length; i++) {
                 float diff = emb[i] - knownEmb[i];
-                distance += diff*diff;
+                distance += diff * diff;
             }
             distance = (float) Math.sqrt(distance);
             if (ret == null || distance < ret.second) {
@@ -119,8 +91,6 @@ public class TFLiteFaceRecognition
         return ret;
     }
 
-
-    //TODO TAKE INPUT IMAGE AND RETURN RECOGNITIONS
     @Override
     public Recognition recognizeImage(final Bitmap bitmap, boolean storeExtra) {
         bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
@@ -129,11 +99,10 @@ public class TFLiteFaceRecognition
             for (int j = 0; j < inputSize; ++j) {
                 int pixelValue = intValues[i * inputSize + j];
                 if (isModelQuantized) {
-                    // Quantized model
                     imgData.put((byte) ((pixelValue >> 16) & 0xFF));
                     imgData.put((byte) ((pixelValue >> 8) & 0xFF));
                     imgData.put((byte) (pixelValue & 0xFF));
-                } else { // Float model
+                } else {
                     imgData.putFloat((((pixelValue >> 16) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
                     imgData.putFloat((((pixelValue >> 8) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
                     imgData.putFloat(((pixelValue & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
@@ -141,42 +110,32 @@ public class TFLiteFaceRecognition
             }
         }
         Object[] inputArray = {imgData};
-        // Here outputMap is changed to fit the Face Mask detector
         Map<Integer, Object> outputMap = new HashMap<>();
 
-        embeedings = new float[1][OUTPUT_SIZE];
-        outputMap.put(0, embeedings);
+        embedding = new float[OUTPUT_SIZE];
+        outputMap.put(0, new float[][] { embedding });
 
-        // Run the inference call.
         tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
-
 
         float distance = Float.MAX_VALUE;
         String id = "0";
         String label = "?";
 
         if (registered.size() > 0) {
-            final Pair<String, Float> nearest = findNearest(embeedings[0]);
+            final Pair<String, Float> nearest = findNearest(embedding);
             if (nearest != null) {
                 final String name = nearest.first;
                 label = name;
                 distance = nearest.second;
             }
         }
-        final int numDetectionsOutput = 1;
-        Recognition rec = new Recognition(
-                id,
-                label,
-                distance,
-                new RectF());
 
+        Recognition rec = new Recognition(id, label, distance, new RectF());
 
         if (storeExtra) {
-            rec.setEmbeeding(embeedings);
+            rec.setEmbeeding(embedding);
         }
 
         return rec;
     }
-
-
 }
