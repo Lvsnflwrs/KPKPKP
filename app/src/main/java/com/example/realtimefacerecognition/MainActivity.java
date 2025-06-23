@@ -53,6 +53,19 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.concurrent.TimeUnit; // Import for OkHttpClient timeout
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+import okio.ByteString;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+
 public class MainActivity extends AppCompatActivity implements ImageReader.OnImageAvailableListener{
     Handler handler;
     private Matrix frameToCropTransform;
@@ -77,7 +90,11 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
     boolean registerFace = false;
 
+    private OkHttpClient client;
 
+    private WebSocket webSocket;
+
+    private static final String WEBSOCKET_URL = "ws://10.0.2.2:8080";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -147,6 +164,84 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
             }
         });
 
+        initWebSocket(); // Initialize WebSocket connection
+
+    }
+
+
+
+    private void initWebSocket() {
+        client = new OkHttpClient.Builder()
+                .readTimeout(0, TimeUnit.MILLISECONDS) // Disable read timeout for WebSockets
+                .build();
+
+        Request request = new Request.Builder().url(WEBSOCKET_URL).build();
+        webSocket = client.newWebSocket(request, new WebSocketListener() {
+            @Override
+            public void onOpen(@NonNull WebSocket webSocket, @NonNull Response response) {
+                super.onOpen(webSocket, response);
+                Log.d("WebSocket", "Connected to WebSocket server!");
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Connected to server!", Toast.LENGTH_SHORT).show());
+            }
+
+            @Override
+            public void onMessage(@NonNull WebSocket webSocket, @NonNull String text) {
+                super.onMessage(webSocket, text);
+                Log.d("WebSocket", "Receiving: " + text);
+                try {
+                    JSONObject jsonResponse = new JSONObject(text);
+                    String status = jsonResponse.optString("status");
+                    String type = jsonResponse.optString("type");
+
+                    if ("success".equals(status) && "recognition_result".equals(type)) {
+                        String user = jsonResponse.optString("user");
+                        double confidence = jsonResponse.optDouble("confidence");
+                        Log.d("FaceRecognition", "Server Recognition: " + user + " (Confidence: " + String.format("%.2f", confidence) + ")");
+
+                        // You can update UI with server's recognition result here if needed
+                        // For example, display a Toast or update a TextView
+
+                        runOnUiThread(() -> Toast.makeText(MainActivity.this, "Server recognized: " + user, Toast.LENGTH_SHORT).show());
+                    } else if ("success".equals(status) && jsonResponse.has("message")) {
+                        String message = jsonResponse.optString("message");
+                        runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+
+                } catch (JSONException e) {
+                    Log.e("WebSocket", "Error parsing JSON message: " + e.getMessage());
+                }
+            }
+
+            @Override
+            public void onMessage(@NonNull WebSocket webSocket, @NonNull ByteString bytes) {
+                super.onMessage(webSocket, bytes);
+                Log.d("WebSocket", "Receiving bytes: " + bytes.hex());
+            }
+
+            @Override
+            public void onClosing(@NonNull WebSocket webSocket, int code, @NonNull String reason) {
+                super.onClosing(webSocket, code, reason);
+                Log.d("WebSocket", "Closing: " + code + " / " + reason);
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Disconnected from server.", Toast.LENGTH_SHORT).show());
+            }
+
+            @Override
+            public void onFailure(@NonNull WebSocket webSocket, @NonNull Throwable t, Response response) {
+                super.onFailure(webSocket, t, response);
+                Log.e("WebSocket", "Error: " + t.getMessage(), t);
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "WebSocket Error: " + t.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    private void sendWebSocketMessage(String message) {
+        if (webSocket != null) {
+            webSocket.send(message);
+            Log.d("WebSocket", "Sending: " + message);
+        } else {
+            Log.e("WebSocket", "WebSocket not initialized.");
+            Toast.makeText(this, "WebSocket not connected. Please restart app.", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -325,7 +420,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
     //TODO Perform face detection
     public void performFaceDetection(){
-        imageConverter.run();;
+        imageConverter.run();
         rgbFrameBitmap.setPixels(rgbBytes, 0, previewWidth, 0, 0, previewWidth, previewHeight);
 
         final Canvas canvas = new Canvas(croppedBitmap);
@@ -358,7 +453,8 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                                             @Override
                                             public void onFailure(@NonNull Exception e) {
                                                 // Task failed with an exception
-                                                // ...
+                                                Log.e("FaceDetection", "Face detection failed: " + e.getMessage());
+                                                postInferenceCallback.run(); // Ensure frame is closed even on failure
                                             }
                                         });
 
@@ -400,7 +496,19 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
             if(registerFace){
                 registerFaceDialogue(crop,result);
             }else {
-                if (result.getDistance() < 0.75f) {
+                // Send embeddings to WebSocket server for recognition
+                if (webSocket != null) {
+                    try {
+                        JSONObject jsonRequest = new JSONObject();
+                        jsonRequest.put("type", "recognize_face");
+                        jsonRequest.put("embeddings", result.getEmbeeding()); // Send the raw embeddings
+                        sendWebSocketMessage(jsonRequest.toString());
+                    } catch (JSONException e) {
+                        Log.e("WebSocket", "Error creating recognition request JSON: " + e.getMessage());
+                    }
+                }
+
+                if (result.getDistance() < 0.75f) { // Your existing client-side recognition threshold
                     confidence = result.getDistance();
                     title = result.getTitle();
                 }
@@ -441,6 +549,18 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                 if (name.isEmpty()) {
                     nameEd.setError("Enter Name");
                     return;
+                }
+                // Send registration data to WebSocket server
+                if (webSocket != null) {
+                    try {
+                        JSONObject jsonRequest = new JSONObject();
+                        jsonRequest.put("type", "register_face");
+                        jsonRequest.put("name", name);
+                        jsonRequest.put("embeddings", rec.getEmbeeding()); // Send the raw embeddings
+                        sendWebSocketMessage(jsonRequest.toString());
+                    } catch (JSONException e) {
+                        Log.e("WebSocket", "Error creating registration request JSON: " + e.getMessage());
+                    }
                 }
                 faceClassifier.register(name, rec);
                 Toast.makeText(MainActivity.this, "Face Registered Successfully", Toast.LENGTH_SHORT).show();
