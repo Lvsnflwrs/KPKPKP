@@ -44,7 +44,7 @@ public interface FaceClassifier {
         public void setEmbeeding(float[] extra) {
             this.embedding = extra;
         }
-        public Object getEmbeeding() {
+        public float[] getEmbedding() {
             return this.embedding;
         }
 

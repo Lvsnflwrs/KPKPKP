@@ -4,6 +4,7 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.RectF;
+import android.util.Log;
 import android.util.Pair;
 
 import org.tensorflow.lite.Interpreter;
@@ -14,6 +15,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -76,7 +78,7 @@ public class TFLiteFaceRecognition implements FaceClassifier {
         Pair<String, Float> ret = null;
         for (Map.Entry<String, Recognition> entry : registered.entrySet()) {
             final String name = entry.getKey();
-            final float[] knownEmb = (float[]) entry.getValue().getEmbeeding();
+            final float[] knownEmb = (float[]) entry.getValue().getEmbedding();
 
             float distance = 0;
             for (int i = 0; i < emb.length; i++) {
@@ -116,7 +118,7 @@ public class TFLiteFaceRecognition implements FaceClassifier {
         outputMap.put(0, new float[][] { embedding });
 
         tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
-
+        Log.d("Embedding", Arrays.toString(embedding));
         float distance = Float.MAX_VALUE;
         String id = "0";
         String label = "?";
@@ -137,5 +139,9 @@ public class TFLiteFaceRecognition implements FaceClassifier {
         }
 
         return rec;
+    }
+
+    public float[] getLastEmbedding() {
+        return embedding;
     }
 }
