@@ -1,7 +1,5 @@
 package com.example.realtimefacerecognition;
 
-import static android.content.Intent.getIntent;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -84,8 +82,12 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     private static final String KEY_USE_FACING = "use_facing";
     private static final int CROP_SIZE = 1000;
     private static final int TF_OD_API_INPUT_SIZE2 = 112;
+    private String recognizedLabel = null;
+    private double recognizedDistance = 0.0;
+    private long lastRecognitionTime = 0;
 
-//    //TODO declare face detector
+
+    //    //TODO declare face detector
     FaceDetector detector;
 
 //    //TODO declare face recognizer
@@ -97,7 +99,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
     private WebSocket webSocket;
 
-    private static final String WEBSOCKET_URL = "ws://10.60.225.222:3000";
+    private static final String WEBSOCKET_URL = "ws://192.168.100.47:3000";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -194,18 +196,42 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                     String status = jsonResponse.optString("status");
                     String type = jsonResponse.optString("type");
 
-                    if ("success".equals(status) && "recognition_result".equals(type)) {
+                    if ("recognize_face".equals(type)) {
+                        boolean match = jsonResponse.getBoolean("match");
+                        String name = jsonResponse.getString("name");
+                        double distance = jsonResponse.getDouble("distance");
+
+                        if (match) {
+                            recognizedLabel = name;
+                            recognizedDistance = distance;
+                        } else {
+                            recognizedLabel = "Unknown";
+                            recognizedDistance = 0.0;
+                        }
+                        lastRecognitionTime = System.currentTimeMillis();
+//                        runOnUiThread(() -> {
+//                            String message = match
+//                                    ? "Server recognized: " + recognizedLabel + " (Distance: " + String.format("%.2f", recognizedDistance) + ")"
+//                                    : "Face not recognized.";
+//                            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+//                        });
+                    }
+
+                    else if ("success".equals(status) && "recognition_result".equals(type)) {
                         String user = jsonResponse.optString("user");
                         double confidence = jsonResponse.optDouble("confidence");
                         Log.d("FaceRecognition", "Server Recognition: " + user + " (Confidence: " + String.format("%.2f", confidence) + ")");
 
-                        // You can update UI with server's recognition result here if needed
-                        // For example, display a Toast or update a TextView
+                        runOnUiThread(() ->
+                                Toast.makeText(MainActivity.this, "Server recognized: " + user, Toast.LENGTH_SHORT).show()
+                        );
+                    }
 
-                        runOnUiThread(() -> Toast.makeText(MainActivity.this, "Server recognized: " + user, Toast.LENGTH_SHORT).show());
-                    } else if ("success".equals(status) && jsonResponse.has("message")) {
+                    else if ("success".equals(status) && jsonResponse.has("message")) {
                         String message = jsonResponse.optString("message");
-                        runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() ->
+                                Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show()
+                        );
                     }
 
                 } catch (JSONException e) {
@@ -488,30 +514,41 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                 bounds.width(),
                 bounds.height());
         crop = Bitmap.createScaledBitmap(crop,TF_OD_API_INPUT_SIZE2,TF_OD_API_INPUT_SIZE2,false);
-
-
         final FaceClassifier.Recognition result = faceClassifier.recognizeImage(crop, registerFace);
         String title = "Unknown";
         float confidence = 0;
-        if (result !=null) {
-            if(registerFace){
-                registerFaceDialogue(crop,result);
-            }else {
-                // Send embeddings to WebSocket server for recognition
-                if (webSocket != null) {
+        if (result != null) {
+            if (registerFace) {
+                registerFaceDialogue(crop, result);
+            } else {
+                float[] embeddingArray = ((TFLiteFaceRecognition) faceClassifier).getLastEmbedding();
+
+                if (embeddingArray != null && webSocket != null) {
                     try {
+                        JSONArray jsonEmbedding = new JSONArray();
+                        for (float val : embeddingArray) {
+                            jsonEmbedding.put(val);
+                        }
+
                         JSONObject jsonRequest = new JSONObject();
                         jsonRequest.put("type", "recognize_face");
-                        jsonRequest.put("embedding", result.getEmbeeding()); // Send the raw embeddings
+                        jsonRequest.put("embedding", jsonEmbedding);
                         sendWebSocketMessage(jsonRequest.toString());
                     } catch (JSONException e) {
                         Log.e("WebSocket", "Error creating recognition request JSON: " + e.getMessage());
                     }
+                } else {
+                    Log.w("WebSocket", "Embedding is null or WebSocket is null");
                 }
 
-                if (result.getDistance() < 0.75f) { // Your existing client-side recognition threshold
+                if (result.getDistance() < 0.75f) {
                     confidence = result.getDistance();
                     title = result.getTitle();
+                }
+
+                if (System.currentTimeMillis() - lastRecognitionTime < 1000) {
+                    title = recognizedLabel;
+                    confidence = (float) recognizedDistance;
                 }
             }
         }
@@ -559,7 +596,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                         jsonRequest.put("name", name);
 
                         // Konversi embedding float[] ke JSONArray
-                        float[] emb = (float[]) rec.getEmbeeding();
+                        float[] emb = (float[]) rec.getEmbedding();
                         JSONArray embeddingJson = new JSONArray();
                         for (float val : emb) {
                             embeddingJson.put(val);
