@@ -99,7 +99,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
     private WebSocket webSocket;
 
-    private static final String WEBSOCKET_URL = "ws://192.168.100.47:3000";
+    private static final String WEBSOCKET_URL = "ws://10.60.230.171:3000";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
