@@ -21,13 +21,12 @@ import java.util.Map;
 
 public class TFLiteFaceRecognition implements FaceClassifier {
 
-    private static final int OUTPUT_SIZE = 192;
+    private static final int OUTPUT_SIZE = 512;
     private static final float IMAGE_MEAN = 128.0f;
     private static final float IMAGE_STD = 128.0f;
 
     private boolean isModelQuantized;
     private int inputSize;
-
     private int[] intValues;
     private float[] embedding;
 
@@ -58,15 +57,17 @@ public class TFLiteFaceRecognition implements FaceClassifier {
             final boolean isQuantized) throws IOException {
 
         final TFLiteFaceRecognition d = new TFLiteFaceRecognition();
-        d.inputSize = inputSize;
+        d.isModelQuantized = isQuantized;
 
         try {
             d.tfLite = new Interpreter(loadModelFile(assetManager, modelFilename));
+            Log.d("MODEL_SHAPE", Arrays.toString(d.tfLite.getOutputTensor(0).shape()));
+            int[] inputShape = d.tfLite.getInputTensor(0).shape();
+            d.inputSize = inputShape[1];
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
-        d.isModelQuantized = isQuantized;
         int numBytesPerChannel = isQuantized ? 1 : 4;
         d.imgData = ByteBuffer.allocateDirect(1 * d.inputSize * d.inputSize * 3 * numBytesPerChannel);
         d.imgData.order(ByteOrder.nativeOrder());
@@ -94,7 +95,10 @@ public class TFLiteFaceRecognition implements FaceClassifier {
     }
 
     @Override
-    public Recognition recognizeImage(final Bitmap bitmap, boolean storeExtra) {
+    public Recognition recognizeImage(Bitmap bitmap, boolean storeExtra) {
+        if (bitmap.getWidth() != inputSize || bitmap.getHeight() != inputSize) {
+            bitmap = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, false);
+        }
         bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
         imgData.rewind();
         for (int i = 0; i < inputSize; ++i) {
@@ -140,7 +144,9 @@ public class TFLiteFaceRecognition implements FaceClassifier {
 
         return rec;
     }
-
+    public int getInputSize() {
+        return inputSize;
+    }
     public float[] getLastEmbedding() {
         return embedding;
     }

@@ -81,7 +81,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
     private Integer useFacing = null;
     private static final String KEY_USE_FACING = "use_facing";
     private static final int CROP_SIZE = 1000;
-    private static final int TF_OD_API_INPUT_SIZE2 = 112;
+    private static final int TF_OD_API_INPUT_SIZE2 = 320;
     private String recognizedLabel = null;
     private double recognizedDistance = 0.0;
     private long lastRecognitionTime = 0;
@@ -99,7 +99,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
 
     private WebSocket webSocket;
 
-    private static final String WEBSOCKET_URL = "ws://192.168.100.47:3000";
+    private static final String WEBSOCKET_URL = "ws://10.60.225.222:3000";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -140,7 +140,7 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
             faceClassifier =
                     TFLiteFaceRecognition.create(
                             getAssets(),
-                            "mobile_face_net.tflite",
+                            "facenet.tflite",
                             TF_OD_API_INPUT_SIZE2,
                             false);
 
@@ -513,7 +513,8 @@ public class MainActivity extends AppCompatActivity implements ImageReader.OnIma
                 bounds.top,
                 bounds.width(),
                 bounds.height());
-        crop = Bitmap.createScaledBitmap(crop,TF_OD_API_INPUT_SIZE2,TF_OD_API_INPUT_SIZE2,false);
+        int inputSize = ((TFLiteFaceRecognition) faceClassifier).getInputSize();
+        crop = Bitmap.createScaledBitmap(crop, inputSize, inputSize, false);
         final FaceClassifier.Recognition result = faceClassifier.recognizeImage(crop, registerFace);
         String title = "Unknown";
         float confidence = 0;
